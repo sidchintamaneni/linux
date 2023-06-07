@@ -13,40 +13,50 @@ int _version SEC("version") = 1;
 char _license[] SEC("license") = "GPL";
 
 struct {
-	__u32 type;
-	__u32 map_flags;
-	int *key;
-	__u64 *value;
-} bpf_next_dump SEC(".maps") = {
-	.type = BPF_MAP_TYPE_SK_STORAGE,
-	.map_flags = BPF_F_NO_PREALLOC,
-};
+	__uint(type,BPF_MAP_TYPE_SK_STORAGE);
+	__uint(map_flags,BPF_F_NO_PREALLOC);
+	__type(key, int);
+	__type(value, int);
+} bpf_next_dump SEC(".maps");
 
 SEC("sockops")
 int _sockops(struct bpf_sock_ops *ctx)
 {
+	bpf_printk("Starting here\n");
 	struct bpf_tcp_sock *tcp_sk;
 	struct bpf_sock *sk;
 	__u64 *next_dump;
 	__u64 now;
 
-	switch (ctx->op) {
-	case BPF_SOCK_OPS_TCP_CONNECT_CB:
+	u64 start_time, taken, total_time=0, best_time=1000,worst_time=0;
+	for(int i=0;i<1024;i++){
+		start_time = bpf_ktime_get_ns(); 
 		bpf_sock_ops_cb_flags_set(ctx, BPF_SOCK_OPS_RTT_CB_FLAG);
-		return 1;
-	case BPF_SOCK_OPS_RTT_CB:
-		break;
-	default:
-		return 1;
+		taken = bpf_ktime_get_ns() - start_time; 
+		total_time += taken; 
+		if(taken > worst_time)
+			worst_time = taken;
+		if(taken<best_time)
+			best_time = taken;
 	}
-
+	bpf_printk("bpf_sock_ops_cb_flags_set Avg:%ld ns, Best:%ld ns, worst:%ld ns\n", total_time/1024, best_time, worst_time);
 	sk = ctx->sk;
 	if (!sk)
 		return 1;
 
-	next_dump = bpf_sk_storage_get(&bpf_next_dump, sk, 0,
-				       BPF_SK_STORAGE_GET_F_CREATE);
-	if (!next_dump)
+	total_time=0;best_time=1000;worst_time=0;	
+	for(int i=0;i<1024;i++){
+		start_time = bpf_ktime_get_ns(); 
+		bpf_sk_storage_get(&bpf_next_dump, sk, NULL,BPF_SK_STORAGE_GET_F_CREATE);
+		taken = bpf_ktime_get_ns() - start_time; 
+		total_time += taken; 
+		if(taken > worst_time)
+			worst_time = taken;
+		if(taken<best_time)
+			best_time = taken;
+	}
+	bpf_printk("bpf_sk_storage_get Avg:%ld ns, Best:%ld ns, worst:%ld ns\n", total_time/1024, best_time, worst_time);
+/*	if (!next_dump)
 		return 1;
 
 	now = bpf_ktime_get_ns();
@@ -63,6 +73,6 @@ int _sockops(struct bpf_sock_ops *ctx)
 		   tcp_sk->dsack_dups, tcp_sk->delivered);
 	bpf_printk("delivered_ce=%u icsk_retransmits=%u\n",
 		   tcp_sk->delivered_ce, tcp_sk->icsk_retransmits);
-
+*/
 	return 1;
 }
