@@ -485,6 +485,8 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	struct raw_frag_vec rfv;
 	int hdrincl;
 
+    pr_info("Inside raw_sendmsg\n");
+
 	err = -EMSGSIZE;
 	if (len > 0xFFFF)
 		goto out;

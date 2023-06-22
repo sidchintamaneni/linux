@@ -818,8 +818,10 @@ EXPORT_SYMBOL_GPL(inet_send_prepare);
 int inet_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 {
 	struct sock *sk = sock->sk;
-
-	if (unlikely(inet_send_prepare(sk)))
+    
+    pr_info("Inside inet_sendmsg\n");
+	
+    if (unlikely(inet_send_prepare(sk)))
 		return -EAGAIN;
 
 	return INDIRECT_CALL_2(sk->sk_prot->sendmsg, tcp_sendmsg, udp_sendmsg,

@@ -74,6 +74,8 @@
 #include <asm/io.h>
 #include <asm/unistd.h>
 
+#include <net/custom_skbuff_build.h>
+
 #include "uid16.h"
 
 #ifndef SET_UNALIGN_CTL
@@ -2769,6 +2771,14 @@ SYSCALL_DEFINE1(sysinfo, struct sysinfo __user *, info)
 		return -EFAULT;
 
 	return 0;
+}
+
+SYSCALL_DEFINE0(cust_net)
+{
+    pr_info("Inside the syscall: cust_net\n");
+    build_cust_skb();
+
+    return 0;
 }
 
 #ifdef CONFIG_COMPAT

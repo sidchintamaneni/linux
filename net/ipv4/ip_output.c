@@ -1583,7 +1583,9 @@ int ip_send_skb(struct net *net, struct sk_buff *skb)
 {
 	int err;
 
-	err = ip_local_out(net, skb->sk, skb);
+    pr_info("Inside ip_send_skb\n");
+	
+    err = ip_local_out(net, skb->sk, skb);
 	if (err) {
 		if (err > 0)
 			err = net_xmit_errno(err);
@@ -1598,7 +1600,9 @@ int ip_push_pending_frames(struct sock *sk, struct flowi4 *fl4)
 {
 	struct sk_buff *skb;
 
-	skb = ip_finish_skb(sk, fl4);
+    pr_info("Inside ip_push_pending_frames\n");
+	
+    skb = ip_finish_skb(sk, fl4);
 	if (!skb)
 		return 0;
 
@@ -1691,6 +1695,8 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
 	struct sk_buff *nskb;
 	int err;
 	int oif;
+
+    pr_info("Inside ip_send_unicast_reply\n");
 
 	if (__ip_options_echo(net, &replyopts.opt.opt, skb, sopt))
 		return;

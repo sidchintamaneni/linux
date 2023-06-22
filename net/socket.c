@@ -741,6 +741,7 @@ static inline int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg)
  */
 int sock_sendmsg(struct socket *sock, struct msghdr *msg)
 {
+
 	int err = security_socket_sendmsg(sock, msg,
 					  msg_data_left(msg));
 
@@ -2116,6 +2117,8 @@ int __sys_sendto(int fd, void __user *buff, size_t len, unsigned int flags,
 	struct msghdr msg;
 	struct iovec iov;
 	int fput_needed;
+
+    pr_info("Inside __sys_sendto function\n");
 
 	err = import_single_range(ITER_SOURCE, buff, len, &iov, &msg.msg_iter);
 	if (unlikely(err))

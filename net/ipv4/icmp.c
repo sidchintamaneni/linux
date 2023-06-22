@@ -366,6 +366,8 @@ static void icmp_push_reply(struct sock *sk,
 			    struct ipcm_cookie *ipc, struct rtable **rt)
 {
 	struct sk_buff *skb;
+    
+    pr_info("Inside icmp_push_reply\n");
 
 	if (ip_append_data(sk, fl4, icmp_glue_bits, icmp_param,
 			   icmp_param->data_len+icmp_param->head_len,
@@ -598,6 +600,8 @@ void __icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info,
 	u32 mark;
 	struct net *net;
 	struct sock *sk;
+    
+    pr_info("Inside __icmp_send\n");
 
 	if (!rt)
 		goto out;

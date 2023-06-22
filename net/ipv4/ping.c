@@ -647,6 +647,8 @@ static int ping_v4_push_pending_frames(struct sock *sk, struct pingfakehdr *pfh,
 {
 	struct sk_buff *skb = skb_peek(&sk->sk_write_queue);
 
+    pr_info("Inside ping_v4_push_pending_frames\n");
+
 	if (!skb)
 		return 0;
 	pfh->wcheck = csum_partial((char *)&pfh->icmph,
@@ -719,6 +721,7 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	int err;
 
 	pr_debug("ping_v4_sendmsg(sk=%p,sk->num=%u)\n", inet, inet->inet_num);
+    pr_info("Inside ping_v4_sendmsg\n");
 
 	err = ping_common_sendmsg(AF_INET, msg, len, &user_icmph,
 				  sizeof(user_icmph));

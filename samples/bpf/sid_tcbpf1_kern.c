@@ -97,7 +97,8 @@ int identify_icmp_pkt(struct __sk_buff *skb){
     if (icmp_header + sizeof(struct icmphdr) > data_end)
         return TC_ACT_OK;
 
-
+   // return TC_ACT_SHOT;
+    
     struct icmphdr *icmp = icmp_header;
 
     bpf_map_push_elem(&icmp_ingress_data, icmp, BPF_ANY);
@@ -125,8 +126,6 @@ int identify_icmp_pkt(struct __sk_buff *skb){
     bpf_skb_store_bytes(skb, ICMP_TYPE_OFF, &new_type, sizeof(new_type), 0);
 
     bpf_clone_redirect(skb, skb->ifindex, 0);
-    int key = 0;
-    int val = 10;
 
 
     return TC_ACT_SHOT;

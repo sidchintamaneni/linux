@@ -1069,6 +1069,8 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
 	struct sk_buff *skb;
 	struct ip_options_data opt_copy;
+    
+    pr_info("Inside udp_sendmsg\n");
 
 	if (len > 0xFFFF)
 		return -EMSGSIZE;
