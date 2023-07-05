@@ -1584,6 +1584,12 @@ int ip_send_skb(struct net *net, struct sk_buff *skb)
 	int err;
 
     pr_info("Inside ip_send_skb\n");
+
+    /** debugging sk_buff */
+
+    pr_info("protocol(__be16): %u\n", skb->protocol);
+
+    /** debugging sk_buff ends here */
 	
     err = ip_local_out(net, skb->sk, skb);
 	if (err) {

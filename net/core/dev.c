@@ -4158,6 +4158,8 @@ int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev)
 	int rc = -ENOMEM;
 	bool again = false;
 
+    //pr_info("Inside __dev_queue_xmit\n");
+
 	skb_reset_mac_header(skb);
 	skb_assert_len(skb);
 

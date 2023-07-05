@@ -3051,6 +3051,7 @@ int __dev_direct_xmit(struct sk_buff *skb, u16 queue_id);
 
 static inline int dev_queue_xmit(struct sk_buff *skb)
 {
+    //pr_info("Inside dev_queue_xmit\n");
 	return __dev_queue_xmit(skb, NULL);
 }
 

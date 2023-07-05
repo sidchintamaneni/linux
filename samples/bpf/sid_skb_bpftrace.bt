@@ -1,0 +1,26 @@
+#!/usr/local/bin/bpftrace
+
+#include <linux/skbuff.h>
+#include <linux/icmp.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/in.h>
+
+BEGIN { printf("Tracing ICMP echo request latency. Hit Ctrl-C to end.\n"); }
+
+kprobe:ip_send_skb
+{
+    $skb = (struct sk_buff *)arg1;
+    // get IPv4 header; see skb_network_header():
+    $iph = (struct iphdr *)($skb->head + $skb->network_header);
+    if ($iph->protocol == IPPROTO_ICMP) {
+        // get ICMP header; see skb_transport_header():
+        $icmph = (struct icmphdr *)($skb->head + $skb->transport_header);
+        if ($icmph->type == ICMP_ECHO) {
+            $id = $icmph->un.echo.id;
+            $seq = $icmph->un.echo.sequence;
+            @start[$id, $seq] = nsecs;
+        }
+    }
+}
+
