@@ -200,6 +200,24 @@ static int ip_finish_output2(struct net *net, struct sock *sk, struct sk_buff *s
 	struct neighbour *neigh;
 	bool is_v6gw = false;
 
+
+    pr_info("Inside ip_finish_output2\n");
+    /** debugging sk_buff */
+    //printing iphr
+    void *ip_header = skb->data ;
+    struct iphdr *iph = ip_header;
+    pr_info("printing ip_header(iphdr->protocol):%d\n", iph->protocol);
+    pr_info("printing ip_header(iphdr->daddr):%x\n", iph->addrs.daddr);
+    /** debugging ends here */
+
+    //printing icmphdr
+    void *icmp_header = skb->data + sizeof(struct iphdr);
+    struct icmphdr *icmph = icmp_header;
+    pr_info("printing icmp_header(icmphdr->code):%d\n", icmph->code);
+    pr_info("printing icmp_header(icmphdr->type):%d\n", icmph->type);
+    pr_info("printing icmp_header(icmphdr->checksum):%d\n", icmph->checksum);
+    /** debugging ends here */
+
 	if (rt->rt_type == RTN_MULTICAST) {
 		IP_UPD_PO_STATS(net, IPSTATS_MIB_OUTMCAST, skb->len);
 	} else if (rt->rt_type == RTN_BROADCAST)
@@ -1584,12 +1602,6 @@ int ip_send_skb(struct net *net, struct sk_buff *skb)
 	int err;
 
     pr_info("Inside ip_send_skb\n");
-
-    /** debugging sk_buff */
-
-    pr_info("protocol(__be16): %u\n", skb->protocol);
-
-    /** debugging sk_buff ends here */
 	
     err = ip_local_out(net, skb->sk, skb);
 	if (err) {
