@@ -177,6 +177,7 @@ always-y += hbm_out_kern.o
 always-y += hbm_edt_kern.o
 always-y += sid_tcbpf1_kern.o
 always-y += sid_sk1_kern.o
+always-y += sid_hello_bpf_kern.o 
 
 ifeq ($(ARCH), arm)
 # Strip all except -D__LINUX_ARM_ARCH__ option needed to handle linux
