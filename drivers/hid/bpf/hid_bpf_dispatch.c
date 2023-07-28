@@ -242,6 +242,15 @@ int hid_bpf_reconnect(struct hid_device *hdev)
 }
 
 /**
+ * sid_bpf_testing - testing kfunc
+*/
+noinline int
+sid_bpf_testing(void){
+    pr_info("sid_bpf_testing: calling kernel function from bpf program\n");
+    return 0;
+}
+
+/**
  * hid_bpf_attach_prog - Attach the given @prog_fd to the given HID device
  *
  * @hid_id: the system unique identifier of the HID device
@@ -259,6 +268,8 @@ hid_bpf_attach_prog(unsigned int hid_id, int prog_fd, __u32 flags)
 	struct hid_device *hdev;
 	struct device *dev;
 	int fd, err, prog_type = hid_bpf_get_prog_attach_type(prog_fd);
+    
+    pr_info("hid_bpf_attach_prog: blah blah\n");
 
 	if (!hid_bpf_ops)
 		return -EINVAL;
@@ -445,6 +456,7 @@ static const struct btf_kfunc_id_set hid_bpf_fmodret_set = {
 /* for syscall HID-BPF */
 BTF_SET8_START(hid_bpf_syscall_kfunc_ids)
 BTF_ID_FLAGS(func, hid_bpf_attach_prog)
+BTF_ID_FLAGS(func, sid_bpf_testing)
 BTF_ID_FLAGS(func, hid_bpf_allocate_context, KF_ACQUIRE | KF_RET_NULL)
 BTF_ID_FLAGS(func, hid_bpf_release_context, KF_RELEASE)
 BTF_ID_FLAGS(func, hid_bpf_hw_request)

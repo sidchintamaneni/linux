@@ -3638,6 +3638,7 @@ static int bpf_prog_test_run(const union bpf_attr *attr,
 	struct bpf_prog *prog;
 	int ret = -ENOTSUPP;
 
+    pr_info("bpf_prog_test_run: in kernel/bpf/syscall.c\n");
 	if (CHECK_ATTR(BPF_PROG_TEST_RUN))
 		return -EINVAL;
 
@@ -3649,14 +3650,20 @@ static int bpf_prog_test_run(const union bpf_attr *attr,
 	    (!attr->test.ctx_size_out && attr->test.ctx_out))
 		return -EINVAL;
 
+    pr_info("bpf_prog_test_run: before bpf_pro_get\n");
 	prog = bpf_prog_get(attr->test.prog_fd);
+    pr_info("bpf_prog_test_run: after bpf_pro_get\n");
 	if (IS_ERR(prog))
 		return PTR_ERR(prog);
 
 	if (prog->aux->ops->test_run)
+        pr_info("bpf_prog_test_run: before test_run\n");
 		ret = prog->aux->ops->test_run(prog, attr, uattr);
+        pr_info("bpf_prog_test_run: after test_run\n");
 
+    pr_info("bpf_prog_test_run: before bpf_pro_put\n");
 	bpf_prog_put(prog);
+    pr_info("bpf_prog_test_run: after bpf_pro_put\n");
 	return ret;
 }
 
@@ -5007,7 +5014,9 @@ static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 		err = bpf_prog_query(&attr, uattr.user);
 		break;
 	case BPF_PROG_TEST_RUN:
-		err = bpf_prog_test_run(&attr, uattr.user);
+        pr_info("__sys_bpf: before calling bpf_prog_test_run\n");
+		err = bpf_prog_test_run(&attr, uattr.user); 
+        pr_info("__sys_bpf: after calling bpf_prog_test_run\n");
 		break;
 	case BPF_PROG_GET_NEXT_ID:
 		err = bpf_obj_get_next_id(&attr, uattr.user,

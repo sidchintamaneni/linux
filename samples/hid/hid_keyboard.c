@@ -104,7 +104,6 @@ int main(int argc, char **argv)
 	}
 
 	hid_id = get_hid_id(sysfs_path);
-
 	if (hid_id < 0) {
 		fprintf(stderr, "can not open HID device: %m\n");
 		return 1;
@@ -116,7 +115,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "can't locate attach prog: %m\n");
 		return 1;
 	}
-
 	bpf_object__for_each_program(prog, *skel->skeleton->obj) {
 		/* ignore syscalls */
 		if (bpf_program__get_type(prog) != BPF_PROG_TYPE_TRACING)
@@ -124,7 +122,9 @@ int main(int argc, char **argv)
 
 		args.retval = -1;
 		args.prog_fd = bpf_program__fd(prog);
+        printf("main: before bpf_prog_test_run_opts\n");
 		err = bpf_prog_test_run_opts(attach_fd, &tattr);
+        printf("main: after bpf_prog_test_run_opts\n");
 		if (err) {
 			fprintf(stderr, "can't attach prog to hid device %d: %m (err: %d)\n",
 				hid_id, err);

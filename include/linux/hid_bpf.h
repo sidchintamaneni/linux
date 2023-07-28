@@ -80,7 +80,8 @@ int hid_bpf_rdesc_fixup(struct hid_bpf_ctx *ctx);
 /* Following functions are kfunc that we export to BPF programs */
 /* available everywhere in HID-BPF */
 __u8 *hid_bpf_get_data(struct hid_bpf_ctx *ctx, unsigned int offset, const size_t __sz);
-
+/* testing kfunc syscall */
+int sid_bpf_testing(void);
 /* only available in syscall */
 int hid_bpf_attach_prog(unsigned int hid_id, int prog_fd, __u32 flags);
 int hid_bpf_hw_request(struct hid_bpf_ctx *ctx, __u8 *buf, size_t buf__sz,

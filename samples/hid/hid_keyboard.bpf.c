@@ -4,6 +4,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include "hid_bpf_helpers.h"
+#include "hid_bpf_attach.h"
 
 SEC("fmod_ret/hid_bpf_device_event")
 int BPF_PROG(hid_keyboard, struct hid_bpf_ctx *hctx){

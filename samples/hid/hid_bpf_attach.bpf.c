@@ -11,8 +11,10 @@
 SEC("syscall")
 int attach_prog(struct attach_prog_args *ctx)
 {
+    bpf_printk("attach_prog: Executing attach_prog\n");
 	ctx->retval = hid_bpf_attach_prog(ctx->hid,
 					  ctx->prog_fd,
 					  0);
+    sid_bpf_testing();
 	return 0;
 }
