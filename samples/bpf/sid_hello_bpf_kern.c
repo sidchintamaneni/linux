@@ -7,22 +7,13 @@
 #include <bpf/bpf_core_read.h>
 #include "trace_common.h"
 
-SEC("tracepoint/syscalls/sys_enter_exit_group")
-int trace_enter_execve(void *ctx){
+
+
+SEC("kprobe/__sys_socket")
+int trace_sys_socket(void *ctx){
 
 	
-    bpf_printk("at the start");
-    
-    return 0;
-
-}
-
-
-SEC("tracepoint/syscalls/sys_exit_exit_group")
-int trace_exit_execve(void *ctx){
-
-	
-    bpf_printk("at the end");
+    bpf_printk("kprobe sample program\n");
     
     return 0;
 
