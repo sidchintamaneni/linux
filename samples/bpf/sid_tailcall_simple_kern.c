@@ -4,7 +4,7 @@
 #include <bpf/bpf_tracing.h>
 
 
-SEC("tracepoint/syscalls/sys_enter_execve")
+SEC("fentry/__bpf_get_stackid")
 int testing_tailcall(void *ctx){
 	
 	bpf_printk("testing_tailcall function\n");
@@ -23,7 +23,7 @@ struct {
 };
 
 
-SEC("tracepoint/syscalls/sys_enter_execve")
+SEC("fentry/__bpf_get_stackid")
 int trace_enter_execve(void *ctx){
 	
 	bpf_printk("trace_enter_execve function\n");

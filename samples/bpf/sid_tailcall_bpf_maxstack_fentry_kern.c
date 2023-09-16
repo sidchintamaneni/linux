@@ -4,8 +4,8 @@
 #include <bpf/bpf_tracing.h>
 #include <uapi/linux/perf_event.h>
 
-#define HOOK_POINT SEC("kprobe/__sys_socket")
-#define SIZE_OF_STACK 208
+#define HOOK_POINT SEC("fentry/__bpf_get_stackid")
+#define SIZE_OF_STACK 100
 #define MAX_ENTRIES	10000
 
 struct {

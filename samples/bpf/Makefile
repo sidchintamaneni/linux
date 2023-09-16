@@ -63,6 +63,7 @@ tprogs-y += sid_tailcall_maxout
 tprogs-y += sid_tailcall_map_update 
 tprogs-y += sid_tailcall_map_user 
 tprogs-y += sid_tailcall_bpf_maxstack
+tprogs-y += sid_tailcall_bpf_maxstack_fentry
 
 # Libbpf dependencies
 LIBBPF_SRC = $(TOOLS_PATH)/lib/bpf
@@ -124,6 +125,7 @@ sid_tailcall_bpf2bpf-objs := sid_tailcall_bpf2bpf_user.o $(TRACE_HELPERS)
 sid_tailcall_maxout-objs := sid_tailcall_maxout_user.o $(TRACE_HELPERS)
 sid_tailcall_map_update-objs := sid_tailcall_map_update_user.o $(TRACE_HELPERS)
 sid_tailcall_bpf_maxstack-objs := sid_tailcall_bpf_maxstack_user.o $(TRACE_HELPERS) 
+sid_tailcall_bpf_maxstack_fentry-objs := sid_tailcall_bpf_maxstack_fentry_user.o $(TRACE_HELPERS) 
 
 xdp_redirect_map_multi-objs := xdp_redirect_map_multi_user.o $(XDP_SAMPLE)
 xdp_redirect_cpu-objs := xdp_redirect_cpu_user.o $(XDP_SAMPLE)
@@ -194,6 +196,7 @@ always-y += sid_tailcall_bpf2bpf_kern.o
 always-y += sid_tailcall_maxout_kern.o 
 always-y += sid_tailcall_map_update_kern.o 
 always-y += sid_tailcall_bpf_maxstack_kern.o
+always-y += sid_tailcall_bpf_maxstack_fentry_kern.o
 
 ifeq ($(ARCH), arm)
 # Strip all except -D__LINUX_ARM_ARCH__ option needed to handle linux
