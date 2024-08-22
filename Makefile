@@ -949,6 +949,7 @@ endif
 ifdef CONFIG_LTO_CLANG
 ifdef CONFIG_LTO_CLANG_THIN
 CC_FLAGS_LTO	:= -flto=thin -fsplit-lto-unit -g
+KBUILD_CFLAGS += -Xclang -no-opaque-pointers
 else
 CC_FLAGS_LTO	:= -flto
 endif
@@ -1004,6 +1005,7 @@ KBUILD_CFLAGS	+= -fno-strict-overflow
 
 # Make sure -fstack-check isn't enabled (like gentoo apparently did)
 KBUILD_CFLAGS  += -fno-stack-check
+
 
 # conserve stack if available
 ifdef CONFIG_CC_IS_GCC
