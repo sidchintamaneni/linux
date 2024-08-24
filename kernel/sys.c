@@ -157,6 +157,15 @@
 #endif
 
 /*
+ * SYSCALL to test callgraph based nested BPF programs in the kernel
+ */
+SYSCALL_DEFINE1(nested_bpf_test, int user_mesg)
+{
+	pr_info("Userspace process triggered the syscall with val: %d\n", user_mesg);
+	return 0;
+}
+
+/*
  * this is where the system-wide overflow UID and GID are defined, for
  * architectures that now have 32-bit UID/GID but didn't in the past
  */
