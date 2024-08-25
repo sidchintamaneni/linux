@@ -68,6 +68,8 @@
 #include <linux/nospec.h>
 
 #include <linux/kmsg_dump.h>
+// Testing nested BPF program
+#include <linux/bpf.h>
 /* Move somewhere else to avoid recompiling? */
 #include <generated/utsrelease.h>
 
@@ -159,9 +161,16 @@
 /*
  * SYSCALL to test callgraph based nested BPF programs in the kernel
  */
-SYSCALL_DEFINE1(nested_bpf_test, int user_mesg)
+SYSCALL_DEFINE1(nested_bpf_test, int, user_mesg)
 {
-	pr_info("Userspace process triggered the syscall with val: %d\n", user_mesg);
+	pr_info("nested_bpf_test: At the start\n");
+	pr_info("nested_bpf_test: Userspace process triggered the syscall with val: %d\n", user_mesg);
+
+	// call bpf_nested_func1
+	int ret = bpf_nested_func1();
+	pr_info("nested_bpf_test: ret value from nested_func1 %d\n", ret);
+
+	pr_info("nested_bpf_test: the end\n");
 	return 0;
 }
 

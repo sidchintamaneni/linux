@@ -398,6 +398,19 @@ const struct bpf_func_proto bpf_jiffies64_proto = {
 	.ret_type	= RET_INTEGER,
 };
 
+BPF_CALL_0(bpf_nested_test)
+{
+	pr_info("bpf_nested_test: At the start\n");
+	//call func1
+	return bpf_nested_func1();
+}
+
+const struct bpf_func_proto bpf_nested_test_proto = {
+	.func		= bpf_nested_test,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+};
+
 #ifdef CONFIG_CGROUPS
 BPF_CALL_0(bpf_get_current_cgroup_id)
 {
