@@ -6319,8 +6319,6 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 	if (priv_stack_mode == PRIV_STACK_UNKNOWN)
 		priv_stack_mode = bpf_enable_priv_stack(env->prog);
 
-	int db_priv_stack_mode = priv_stack_mode;
-
 	/* All async_cb subprogs use normal kernel stack. If a particular
 	 * subprog appears in both main prog and async_cb subtree, that
 	 * subprog will use normal kernel stack to avoid potential nesting.

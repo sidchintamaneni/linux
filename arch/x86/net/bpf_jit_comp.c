@@ -330,6 +330,15 @@ static void push_r9(u8 **pprog)
 	u8 *prog = *pprog;
 
 	EMIT2(0x41, 0x51);   /* push r9 */
+	/*
+	 * Expands to 
+	 * EMIT(0x41 + 0x51 << 8, 2)
+	 * EMIT(0x5141, 2) 
+	 * do {
+	 *	prog = emit_code(prog, 0x5141, 2);
+	 * } while(0)
+	 *
+	 */
 	*pprog = prog;
 }
 
@@ -1469,6 +1478,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image, u8 *rw_image
 	int err;
 
 	stack_depth = bpf_prog->aux->stack_depth;
+
+	/* CLARIFY: Somewhere in the code bpf_prog->aux->priv_stack_ptr is initialized */
 	priv_stack_ptr = bpf_prog->aux->priv_stack_ptr;
 	if (priv_stack_ptr) {
 		priv_frame_ptr = priv_stack_ptr + PRIV_STACK_GUARD_SZ + round_up(stack_depth, 8);

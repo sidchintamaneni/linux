@@ -2790,9 +2790,10 @@ kprobe_multi_link_prog_run(struct bpf_kprobe_multi_link *link,
 		.entry_ip = entry_ip,
 	};
 	struct bpf_run_ctx *old_run_ctx;
+	struct bpf_prog *prog = link->link.prog;
 	int err;
 
-	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1)) {
+	if (unlikely(__this_cpu_inc_return(*(prog->active)) != 1)) {
 		bpf_prog_inc_misses_counter(link->link.prog);
 		err = 0;
 		goto out;
@@ -2807,7 +2808,7 @@ kprobe_multi_link_prog_run(struct bpf_kprobe_multi_link *link,
 	migrate_enable();
 
  out:
-	__this_cpu_dec(bpf_prog_active);
+	__this_cpu_dec(*(prog->active));
 	return err;
 }
 
