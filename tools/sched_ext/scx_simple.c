@@ -95,6 +95,7 @@ restart:
 		printf("local=%llu global=%llu\n", stats[0], stats[1]);
 		fflush(stdout);
 		sleep(1);
+		break;
 	}
 
 	bpf_link__destroy(link);
