@@ -20,6 +20,7 @@
 efi_status_t efi_get_memory_map(struct efi_boot_memmap **map,
 				bool install_cfg_tbl)
 {
+	efi_info("efi_get_memory_map: Start\n");
 	struct efi_boot_memmap tmp, *m __free(efi_pool) = NULL;
 	int memtype = install_cfg_tbl ? EFI_ACPI_RECLAIM_MEMORY
 				      : EFI_LOADER_DATA;
@@ -28,16 +29,27 @@ efi_status_t efi_get_memory_map(struct efi_boot_memmap **map,
 	unsigned long size;
 
 	tmp.map_size = 0;
+	efi_info("efi_get_memory_map: get_memory_map(efi_bs_call)\n");
 	status = efi_bs_call(get_memory_map, &tmp.map_size, NULL, &tmp.map_key,
 			     &tmp.desc_size, &tmp.desc_ver);
 	if (status != EFI_BUFFER_TOO_SMALL)
 		return EFI_LOAD_ERROR;
+	efi_info("efi_get_memory_map: after get_memory_map(efi_bs_call)\n");
+	efi_info("efi_get_memory_map: efi_boot_memmap \n"
+			"\t\t tmp.map_size: %ld\n"
+			"\t\t tmp.desc_size: %ld\n"
+			"\t\t tmp.desc_ver: %d\n"
+			"\t\t tmp.map_key: %lx\n", tmp.map_size, tmp.desc_size,
+						tmp.desc_ver, tmp.map_key);
 
 	size = tmp.map_size + tmp.desc_size * EFI_MMAP_NR_SLACK_SLOTS;
+	efi_info("efi_get_memory_map: allocate_pool(efi_bs_call)\n");
 	status = efi_bs_call(allocate_pool, memtype, sizeof(*m) + size,
 			     (void **)&m);
-	if (status != EFI_SUCCESS)
+	if (status != EFI_SUCCESS) {
+		efi_info("efi_get_memory_map: allocate_pool(efi_bs_call) failed\n");
 		return status;
+	}
 
 	if (install_cfg_tbl) {
 		/*
@@ -52,8 +64,15 @@ efi_status_t efi_get_memory_map(struct efi_boot_memmap **map,
 	}
 
 	m->buff_size = m->map_size = size;
+	efi_info("efi_get_memory_map: get_memory_map(efi_bs_call) again\n");
 	status = efi_bs_call(get_memory_map, &m->map_size, m->map, &m->map_key,
 			     &m->desc_size, &m->desc_ver);
+	efi_info("efi_get_memory_map: efi_boot_memmap \n"
+			"\t\t m.map_size: %ld\n"
+			"\t\t m.desc_size: %ld\n"
+			"\t\t m.desc_ver: %d\n"
+			"\t\t m.map_key: %lx\n", m->map_size, m->desc_size,
+						m->desc_ver, m->map_key);
 	if (status != EFI_SUCCESS) {
 		if (install_cfg_tbl)
 			efi_bs_call(install_configuration_table, &tbl_guid, NULL);

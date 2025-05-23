@@ -425,25 +425,31 @@ char *efi_convert_cmdline(efi_loaded_image_t *image)
 efi_status_t efi_exit_boot_services(void *handle, void *priv,
 				    efi_exit_boot_map_processing priv_func)
 {
+	efi_info("efi_exit_boot_service: Start\n");
+	efi_info("efi_exit_boot_service: size of efi_memory_desc_t %ld\n", sizeof(efi_memory_desc_t));
 	struct efi_boot_memmap *map;
 	efi_status_t status;
 
 	if (efi_disable_pci_dma)
 		efi_pci_disable_bridge_busmaster();
 
+	efi_info("efi_exit_boot_service: Calling efi_get_memory_map\n");
 	status = efi_get_memory_map(&map, true);
 	if (status != EFI_SUCCESS)
 		return status;
 
+	efi_info("efi_exit_boot_service: Calling exit_boot_func\n");
 	status = priv_func(map, priv);
 	if (status != EFI_SUCCESS) {
 		efi_bs_call(free_pool, map);
 		return status;
 	}
 
+	efi_info("efi_exit_boot_service: Calling exit_boot_services(efi_bs_call)\n");
 	status = efi_bs_call(exit_boot_services, handle, map->map_key);
 
 	if (status == EFI_INVALID_PARAMETER) {
+		efi_info("efi_exit_boot_service: memory map changes b/w efi_get_memory_map and exit_boot_services\n");
 		/*
 		 * The memory map changed between efi_get_memory_map() and
 		 * exit_boot_services().  Per the UEFI Spec v2.6, Section 6.4:
@@ -458,6 +464,7 @@ efi_status_t efi_exit_boot_services(void *handle, void *priv,
 		 * to get_memory_map() is expected to succeed here.
 		 */
 		map->map_size = map->buff_size;
+		efi_info("efi_exit_boot_service: Calling get_memory_map(efi_bs_call) again\n");
 		status = efi_bs_call(get_memory_map,
 				     &map->map_size,
 				     &map->map,
@@ -469,11 +476,13 @@ efi_status_t efi_exit_boot_services(void *handle, void *priv,
 		if (status != EFI_SUCCESS)
 			return status;
 
+		efi_info("efi_exit_boot_service: Calling exit_boot_func again\n");
 		status = priv_func(map, priv);
 		/* exit_boot_services() was called, thus cannot free */
 		if (status != EFI_SUCCESS)
 			return status;
 
+		efi_info("efi_exit_boot_service: Calling exit_boot_services(efi_bs_call) again\n");
 		status = efi_bs_call(exit_boot_services, handle, map->map_key);
 	}
 

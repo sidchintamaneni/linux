@@ -62,6 +62,8 @@ s32 BPF_STRUCT_OPS(simple_select_cpu, struct task_struct *p, s32 prev_cpu, u64 w
 	bpf_printk("simple_select_cpu: triggered for task %d and prev_cpu %d\n", 
 			p->tgid, prev_cpu);
 	cpu = scx_bpf_select_cpu_dfl(p, prev_cpu, wake_flags, &is_idle);
+	bpf_printk("simple_select_cpu: triggered for task %d and ret_cpu %d\n", 
+			p->tgid, cpu);
 	if (is_idle) {
 		stat_inc(0);	/* count local queueing */
 		scx_bpf_dsq_insert(p, SCX_DSQ_LOCAL, SCX_SLICE_DFL, 0);
@@ -181,6 +183,10 @@ void BPF_STRUCT_OPS(simple_enable, struct task_struct *p)
 s32 BPF_STRUCT_OPS_SLEEPABLE(simple_init)
 {
 	bpf_printk("simple_init: Initialized the BPF schedular\n");
+	// scx_bpf_create_dsq( 0, -1)
+	// returns struct scx_dispatch_q *
+	// DSQ can be either a FIFO or ->scx.dsq_vtime ordered queue
+	// built-in DSQ is always a FIFO
 	return scx_bpf_create_dsq(SHARED_DSQ, -1);
 }
 
