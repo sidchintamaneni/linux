@@ -2077,6 +2077,49 @@ unsigned long get_wchan(struct task_struct *p)
 
 void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
+	if (!strncmp(p->comm, "sid_", 4)) {
+		pr_info("enqueue_task:" 
+			  "pid %d, comm %s\n"
+			  "\t\tstate 0x%x, on_cpu %d, recent_used_cpu %d \n",
+			  p->pid, p->comm, 
+			  p->__state, p->on_cpu, p->recent_used_cpu);
+
+		struct sched_entity se = p->se;
+		pr_info("enqueue_task: sched_entity DEBUG_INFO\n" 
+			  "\t\t weight %lu\n"
+			  "\t\t inv_weight %u\n"
+			  "\t\t deadline %llu\n"
+			  "\t\t min_vruntime %llu\n"
+			  "\t\t min_slice %llu\n"
+			  "\t\t on_rq %u\n"
+			  "\t\t sched_delayed %u\n"
+			  "\t\t rel_deadline %u\n"
+			  "\t\t custom_slice %u\n"
+			  "\t\t exec_start %llu\n"
+			  "\t\t sum_exec_runtime %llu\n"
+			  "\t\t prev_sum_exec_runtime %llu\n"
+			  "\t\t vruntime %llu\n"
+			  "\t\t vlag %llu\n"
+			  "\t\t slice %llu\n"
+			  "\t\t nr_migrations %llu\n",
+			  se.load.weight,
+			  se.load.inv_weight,
+			  se.deadline,
+			  se.min_vruntime,
+			  se.min_slice,
+			  se.on_rq,
+			  se.sched_delayed,
+			  se.rel_deadline,
+			  se.custom_slice,
+			  se.exec_start,
+			  se.sum_exec_runtime,
+			  se.prev_sum_exec_runtime,
+			  se.vruntime,
+			  se.vlag,
+			  se.slice,
+			  se.nr_migrations);
+	}
+
 	if (!(flags & ENQUEUE_NOCLOCK))
 		update_rq_clock(rq);
 
@@ -2103,6 +2146,49 @@ void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
  */
 inline bool dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 {
+	if (!strncmp(p->comm, "sid_", 4)) {
+		pr_info("dequeue_task:" 
+			  "pid %d, comm %s\n"
+			  "\t\tstate 0x%x, on_cpu %d, recent_used_cpu %d \n",
+			  p->pid, p->comm, 
+			  p->__state, p->on_cpu, p->recent_used_cpu);
+
+		struct sched_entity se = p->se;
+		pr_info("dequeue_task: sched_entity DEBUG_INFO\n" 
+			  "\t\t weight %lu\n"
+			  "\t\t inv_weight %u\n"
+			  "\t\t deadline %llu\n"
+			  "\t\t min_vruntime %llu\n"
+			  "\t\t min_slice %llu\n"
+			  "\t\t on_rq %u\n"
+			  "\t\t sched_delayed %u\n"
+			  "\t\t rel_deadline %u\n"
+			  "\t\t custom_slice %u\n"
+			  "\t\t exec_start %llu\n"
+			  "\t\t sum_exec_runtime %llu\n"
+			  "\t\t prev_sum_exec_runtime %llu\n"
+			  "\t\t vruntime %llu\n"
+			  "\t\t vlag %llu\n"
+			  "\t\t slice %llu\n"
+			  "\t\t nr_migrations %llu\n",
+			  se.load.weight,
+			  se.load.inv_weight,
+			  se.deadline,
+			  se.min_vruntime,
+			  se.min_slice,
+			  se.on_rq,
+			  se.sched_delayed,
+			  se.rel_deadline,
+			  se.custom_slice,
+			  se.exec_start,
+			  se.sum_exec_runtime,
+			  se.prev_sum_exec_runtime,
+			  se.vruntime,
+			  se.vlag,
+			  se.slice,
+			  se.nr_migrations);
+	}
+
 	if (sched_core_enabled(rq))
 		sched_core_dequeue(rq, p, flags);
 
@@ -7049,6 +7135,48 @@ asmlinkage __visible void __sched schedule(void)
 {
 	struct task_struct *tsk = current;
 
+	if (!strncmp(tsk->comm, "sid_", 4)) {
+		pr_info("schedule:" 
+			  "pid %d, comm %s\n"
+			  "\t\tstate 0x%x, on_cpu %d, recent_used_cpu %d \n" 
+			  , tsk->pid, tsk->comm, 
+			  tsk->__state, tsk->on_cpu, tsk->recent_used_cpu);
+
+		struct sched_entity se = tsk->se;
+		pr_info("schedule: sched_entity DEBUG_INFO\n" 
+			  "\t\t weight %lu\n"
+			  "\t\t inv_weight %u\n"
+			  "\t\t deadline %llu\n"
+			  "\t\t min_vruntime %llu\n"
+			  "\t\t min_slice %llu\n"
+			  "\t\t on_rq %u\n"
+			  "\t\t sched_delayed %u\n"
+			  "\t\t rel_deadline %u\n"
+			  "\t\t custom_slice %u\n"
+			  "\t\t exec_start %llu\n"
+			  "\t\t sum_exec_runtime %llu\n"
+			  "\t\t prev_sum_exec_runtime %llu\n"
+			  "\t\t vruntime %llu\n"
+			  "\t\t vlag %llu\n"
+			  "\t\t slice %llu\n"
+			  "\t\t nr_migrations %llu\n",
+			  se.load.weight,
+			  se.load.inv_weight,
+			  se.deadline,
+			  se.min_vruntime,
+			  se.min_slice,
+			  se.on_rq,
+			  se.sched_delayed,
+			  se.rel_deadline,
+			  se.custom_slice,
+			  se.exec_start,
+			  se.sum_exec_runtime,
+			  se.prev_sum_exec_runtime,
+			  se.vruntime,
+			  se.vlag,
+			  se.slice,
+			  se.nr_migrations);
+	}
 #ifdef CONFIG_RT_MUTEXES
 	lockdep_assert(!tsk->sched_rt_mutex);
 #endif

@@ -2463,6 +2463,7 @@ static void run_local_timers(void)
  * Called from the timer interrupt handler to charge one tick to the current
  * process.  user_tick is 1 if the tick is user time, 0 for system.
  */
+unsigned long ticks_cnt = 0;
 void update_process_times(int user_tick)
 {
 	struct task_struct *p = current;
@@ -2478,6 +2479,61 @@ void update_process_times(int user_tick)
 	sched_tick();
 	if (IS_ENABLED(CONFIG_POSIX_TIMERS))
 		run_posix_cpu_timers();
+	/*
+	 * update_process_times will trigger every 1/HZ
+	 * if HZ is 1000, it will trigger every 1 millisecond
+	 *
+	 */
+	if (!strncmp(p->comm, "sid_", 4)) {
+		/*
+		 * This if condition is true for every 10 milli-second
+		 */
+		if (ticks_cnt%1000 == 0) {
+			if (ticks_cnt == 1000)
+			pr_info("update_process_times:" 
+				  "pid %d, comm %s\n"
+				  "\t\tstate 0x%x, on_cpu %d, recent_used_cpu %d \n",
+				  p->pid, p->comm, 
+				  p->__state, p->on_cpu, p->recent_used_cpu);
+
+			struct sched_entity se = p->se;
+			pr_info("update_process_times: sched_entity DEBUG_INFO\n" 
+				  "\t\t weight %lu\n"
+				  "\t\t inv_weight %u\n"
+				  "\t\t deadline %llu\n"
+				  "\t\t min_vruntime %llu\n"
+				  "\t\t min_slice %llu\n"
+				  "\t\t on_rq %u\n"
+				  "\t\t sched_delayed %u\n"
+				  "\t\t rel_deadline %u\n"
+				  "\t\t custom_slice %u\n"
+				  "\t\t exec_start %llu\n"
+				  "\t\t sum_exec_runtime %llu\n"
+				  "\t\t prev_sum_exec_runtime %llu\n"
+				  "\t\t vruntime %llu\n"
+				  "\t\t vlag %llu\n"
+				  "\t\t slice %llu\n"
+				  "\t\t nr_migrations %llu\n",
+				  se.load.weight,
+				  se.load.inv_weight,
+				  se.deadline,
+				  se.min_vruntime,
+				  se.min_slice,
+				  se.on_rq,
+				  se.sched_delayed,
+				  se.rel_deadline,
+				  se.custom_slice,
+				  se.exec_start,
+				  se.sum_exec_runtime,
+				  se.prev_sum_exec_runtime,
+				  se.vruntime,
+				  se.vlag,
+				  se.slice,
+				  se.nr_migrations);
+		}
+
+		ticks_cnt += 100;
+	}
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
