@@ -89,17 +89,19 @@ struct rqspinlock_timeout {
 DEFINE_PER_CPU_ALIGNED(struct rqspinlock_held, rqspinlock_held_locks);
 EXPORT_SYMBOL_GPL(rqspinlock_held_locks);
 
-static bool is_lock_released(rqspinlock_t *lock, u32 mask, struct rqspinlock_timeout *ts)
+static bool is_lock_released(rqspinlock_t *lock, u32 mask)
 {
 	if (!(atomic_read_acquire(&lock->val) & (mask)))
 		return true;
 	return false;
 }
 
-static noinline int check_deadlock_AA(rqspinlock_t *lock, u32 mask,
-				      struct rqspinlock_timeout *ts)
+static noinline int check_deadlock_AA(rqspinlock_t *lock)
 {
 	struct rqspinlock_held *rqh = this_cpu_ptr(&rqspinlock_held_locks);
+	/*
+	 * wat the hell with the minimum thing?
+	 */
 	int cnt = min(RES_NR_HELD, rqh->cnt);
 
 	/*
@@ -107,8 +109,13 @@ static noinline int check_deadlock_AA(rqspinlock_t *lock, u32 mask,
 	 * We'll iterate over max 32 locks; no need to do is_lock_released.
 	 */
 	for (int i = 0; i < cnt - 1; i++) {
-		if (rqh->locks[i] == lock)
+		if (rqh->locks[i] == lock) {
+			pr_info("check_timeout [%d, %d - %d]: found a AA deadlock\n",
+			       current->pid,
+			       current->tgid,
+			       smp_processor_id());
 			return -EDEADLK;
+		}
 	}
 	return 0;
 }
@@ -118,8 +125,7 @@ static noinline int check_deadlock_AA(rqspinlock_t *lock, u32 mask,
  * more locks, which reduce to ABBA). This is not exhaustive, and we rely on
  * timeouts as the final line of defense.
  */
-static noinline int check_deadlock_ABBA(rqspinlock_t *lock, u32 mask,
-					struct rqspinlock_timeout *ts)
+static noinline int check_deadlock_ABBA(rqspinlock_t *lock, u32 mask)
 {
 	struct rqspinlock_held *rqh = this_cpu_ptr(&rqspinlock_held_locks);
 	int rqh_cnt = min(RES_NR_HELD, rqh->cnt);
@@ -142,7 +148,7 @@ static noinline int check_deadlock_ABBA(rqspinlock_t *lock, u32 mask,
 		 * Let's ensure to break out of this loop if the lock is available for
 		 * us to potentially acquire.
 		 */
-		if (is_lock_released(lock, mask, ts))
+		if (is_lock_released(lock, mask))
 			return 0;
 
 		/*
@@ -186,8 +192,13 @@ static noinline int check_deadlock_ABBA(rqspinlock_t *lock, u32 mask,
 			 * to recover.
 			 */
 			for (int i = 0; i < rqh_cnt - 1; i++) {
-				if (rqh->locks[i] == remote_lock)
+				if (rqh->locks[i] == remote_lock) {
+					pr_info("check_timeout [%d, %d - %d]: found a ABBA deadlock\n",
+					       current->pid,
+					       current->tgid,
+					       smp_processor_id());
 					return -EDEADLK;
+				}
 			}
 			/*
 			 * Inconclusive; retry again later.
@@ -198,15 +209,15 @@ static noinline int check_deadlock_ABBA(rqspinlock_t *lock, u32 mask,
 	return 0;
 }
 
-static noinline int check_deadlock(rqspinlock_t *lock, u32 mask,
-				   struct rqspinlock_timeout *ts)
+static noinline int check_deadlock(rqspinlock_t *lock, u32 mask)
 {
 	int ret;
 
-	ret = check_deadlock_AA(lock, mask, ts);
+	ret = check_deadlock_AA(lock);
 	if (ret)
 		return ret;
-	ret = check_deadlock_ABBA(lock, mask, ts);
+
+	ret = check_deadlock_ABBA(lock, mask);
 	if (ret)
 		return ret;
 
@@ -219,22 +230,41 @@ static noinline int check_timeout(rqspinlock_t *lock, u32 mask,
 	u64 time = ktime_get_mono_fast_ns();
 	u64 prev = ts->cur;
 
+	pr_info("[BENCH] check_timeout [%d, %d - %d]: time %lld\n",
+	       current->pid,
+	       current->tgid,
+	       smp_processor_id(),
+	       time);
 	if (!ts->timeout_end) {
 		ts->cur = time;
 		ts->timeout_end = time + ts->duration;
 		return 0;
 	}
 
-	if (time > ts->timeout_end)
+//	pr_info("check_timeout [%d, %d - %d]: time %lld, prev %lld, timeout_end %lld\n",
+//	       current->pid,
+//	       current->tgid,
+//	       smp_processor_id(),
+//	       time,
+//	       prev,
+//	       ts->timeout_end);
+	if (time > ts->timeout_end) {
+		pr_info("check_timeout [%d, %d - %d]: deadlock checks timedout\n",
+			current->pid,
+	       		current->tgid,
+	       		smp_processor_id());
 		return -ETIMEDOUT;
+	}
 
 	/*
 	 * A millisecond interval passed from last time? Trigger deadlock
 	 * checks.
+	 *
+	 * My eye sighted the average around 5 milliseconds
 	 */
 	if (prev + NSEC_PER_MSEC < time) {
 		ts->cur = time;
-		return check_deadlock(lock, mask, ts);
+		return check_deadlock(lock, mask);
 	}
 
 	return 0;
@@ -243,6 +273,11 @@ static noinline int check_timeout(rqspinlock_t *lock, u32 mask,
 /*
  * Do not amortize with spins when res_smp_cond_load_acquire is defined,
  * as the macro does internal amortization for us.
+ *
+ * experiment it u32 and u64 ig?
+ */
+/*
+ * Weirdest fucking hack ever!
  */
 #ifndef res_smp_cond_load_acquire
 #define RES_CHECK_TIMEOUT(ts, ret, mask)                              \
@@ -303,7 +338,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(resilient_tas_spin_lock);
 
-#ifdef CONFIG_QUEUED_SPINLOCKS
+//#ifdef CONFIG_QUEUED_SPINLOCKS
 
 /*
  * Per-CPU queue node structures; we can never have more than 4 nested
@@ -350,14 +385,35 @@ int __lockfunc resilient_queued_spin_lock_slowpath(rqspinlock_t *lock, u32 val)
 	struct mcs_spinlock *prev, *next, *node;
 	struct rqspinlock_timeout ts;
 	int idx, ret = 0;
-	u32 old, tail;
+	u32 old, tail, mask = _Q_LOCKED_MASK;
 
 	BUILD_BUG_ON(CONFIG_NR_CPUS >= (1U << _Q_TAIL_CPU_BITS));
 
 	if (resilient_virt_spin_lock_enabled())
 		return resilient_virt_spin_lock(lock);
 
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: initiating res timeout\n"
+			"\tlock->val 0x%x\n"
+			"\tval 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
+
 	RES_INIT_TIMEOUT(ts);
+
+	/*
+	 * Grab an entry in the held locks array, to enable deadlock detection.
+	 */
+	grab_held_lock_entry(lock);
+
+	/*
+	 * do a quick deadlock check on the entry of 
+	 * resilient_queued_spin_lock_slowpath 
+	 */
+	if (val & _Q_PENDING_VAL)
+		mask = _Q_LOCKED_PENDING_MASK;
+	ret = check_deadlock(lock, mask);
+	if (ret) {
+		goto err_release_entry;
+	}
 
 	/*
 	 * Wait for in-progress pending->locked hand-overs with a bounded
@@ -365,7 +421,24 @@ int __lockfunc resilient_queued_spin_lock_slowpath(rqspinlock_t *lock, u32 val)
 	 *
 	 * 0,1,0 -> 0,0,1
 	 */
+	/*
+	 * Isn't this causing cache line bouncing?
+	 * consider a scenario,
+	 *	cpu 1 took a lock
+	 *	cpu 2 is in pending state
+	 *	cpu 3 goes inside this if condition and cpu 2 acquires the lock and cpu 3 is in pending state
+	 *	now what if the same thing happens with cpu 4, 5, 6, 7...
+	 *	doesn't it cause the same effect as spinning on a single value
+	 */
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: checking for pending bit\n"
+			"\tlock->val 0x%x\n"
+			"\tval 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 	if (val == _Q_PENDING_VAL) {
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: pending bit is active so spin for a while\n"
+				"\tlock->val 0x%x\n"
+				"\tval 0x%x\n",
+				current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 		int cnt = _Q_PENDING_LOOPS;
 		val = atomic_cond_read_relaxed(&lock->val,
 					       (VAL != _Q_PENDING_VAL) || !cnt--);
@@ -374,36 +447,62 @@ int __lockfunc resilient_queued_spin_lock_slowpath(rqspinlock_t *lock, u32 val)
 	/*
 	 * If we observe any contention; queue.
 	 */
-	if (val & ~_Q_LOCKED_MASK)
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: check for contention\n"
+				"\tlock->val 0x%x\n"
+				"\tval 0x%x\n",
+				current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
+	if (val & ~_Q_LOCKED_MASK) {
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: either queue or pending bit is active\n"
+				"\tlock->val 0x%x\n"
+				"\tval 0x%x\n",
+				current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 		goto queue;
+	}
 
 	/*
 	 * trylock || pending
 	 *
 	 * 0,0,* -> 0,1,* -> 0,0,1 pending, trylock
 	 */
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: fetching pending bit\n"
+			"\tlock->val 0x%x\n"
+			"\tval 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 	val = queued_fetch_set_pending_acquire(lock);
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: after fetching pending bit\n"
+			"\tlock->val 0x%x\n"
+			"\tval 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 
 	/*
 	 * If we observe contention, there is a concurrent locker.
 	 *
 	 * Undo and queue; our setting of PENDING might have made the
 	 * n,0,0 -> 0,0,0 transition fail and it will now be waiting
-	 * on @next to become !NULL.
+	 * on @next to become !NULL. -> I need to understand what this means!
+	 *
+	 * Stupid comments btw
 	 */
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: checking for contention after fetching pending bit\n"
+			"\tlock->val 0x%x\n"
+			"\tval 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 	if (unlikely(val & ~_Q_LOCKED_MASK)) {
-
 		/* Undo PENDING if we set it. */
-		if (!(val & _Q_PENDING_MASK))
+		if (!(val & _Q_PENDING_MASK)) {
 			clear_pending(lock);
-
+			pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: clearing the pending bit because of contention\n"
+					"\tlock->val 0x%x\n"
+					"\tval 0x%x\n",
+					current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
+		}
 		goto queue;
 	}
 
 	/*
 	 * Grab an entry in the held locks array, to enable deadlock detection.
 	 */
-	grab_held_lock_entry(lock);
+	//grab_held_lock_entry(lock);
 
 	/*
 	 * We're pending, wait for the owner to go away.
@@ -417,8 +516,21 @@ int __lockfunc resilient_queued_spin_lock_slowpath(rqspinlock_t *lock, u32 val)
 	 * barriers.
 	 */
 	if (val & _Q_LOCKED_MASK) {
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: pending bit thread is waiting\n",
+			current->pid,
+			current->tgid,
+			smp_processor_id());
+
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: res is setting the timeout value to 0.25 sec\n",
+			current->pid,
+			current->tgid,
+			smp_processor_id());
 		RES_RESET_TIMEOUT(ts, RES_DEF_TIMEOUT);
 		res_smp_cond_load_acquire(&lock->locked, !VAL || RES_CHECK_TIMEOUT(ts, ret, _Q_LOCKED_MASK));
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: pending bit acquired the lock or we timeout\n"
+				"\tlock->val 0x%x\n"
+				"\tval 0x%x\n",
+				current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 	}
 
 	if (ret) {
@@ -433,6 +545,10 @@ int __lockfunc resilient_queued_spin_lock_slowpath(rqspinlock_t *lock, u32 val)
 		 */
 		clear_pending(lock);
 		lockevent_inc(rqspinlock_lock_timeout);
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: we cleared the pending bit, since we timedout\n"
+				"\tlock->val 0x%x\n"
+				"\tval 0x%x\n",
+				current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 		goto err_release_entry;
 	}
 
@@ -442,6 +558,10 @@ int __lockfunc resilient_queued_spin_lock_slowpath(rqspinlock_t *lock, u32 val)
 	 * 0,1,0 -> 0,0,1
 	 */
 	clear_pending_set_locked(lock);
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: clear the pending bit an take the ownership of the lock\n"
+			"\tlock->val 0x%x\n"
+			"\tval 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 	lockevent_inc(lock_pending);
 	return 0;
 
@@ -451,11 +571,20 @@ int __lockfunc resilient_queued_spin_lock_slowpath(rqspinlock_t *lock, u32 val)
 	 */
 queue:
 	lockevent_inc(lock_slowpath);
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: started to queue\n"
+			"\tlock->val 0x%x\n"
+			"\tval 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), val);
 	/*
 	 * Grab deadlock detection entry for the queue path.
 	 */
-	grab_held_lock_entry(lock);
+	//grab_held_lock_entry(lock);
 
+	/*
+	 * what is with the hardcoded 0?
+	 * I think that is how queued_spin_lock is implemented it.
+	 * Thing to consider while re-writing it, ig
+	 */
 	node = this_cpu_ptr(&rqnodes[0].mcs);
 	idx = node->count++;
 	tail = encode_tail(smp_processor_id(), idx);
@@ -470,6 +599,9 @@ queue:
 	 * we fall back to spinning on the lock directly without using
 	 * any MCS node. This is not the most elegant solution, but is
 	 * simple enough.
+	 */
+	/*
+	 * I am ignoring this condition for now!
 	 */
 	if (unlikely(idx >= _Q_MAX_NODES || in_nmi())) {
 		lockevent_inc(lock_no_node);
@@ -506,6 +638,10 @@ queue:
 	 * attempt the trylock once more in the hope someone let go while we
 	 * weren't watching.
 	 */
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: try acquiring the lock before queuing\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 	if (queued_spin_trylock(lock))
 		goto release;
 
@@ -523,6 +659,10 @@ queue:
 	 *
 	 * p,*,* -> n,*,*
 	 */
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: exchange the tail\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 	old = xchg_tail(lock, tail);
 	next = NULL;
 
@@ -531,14 +671,36 @@ queue:
 	 * head of the waitqueue.
 	 */
 	if (old & _Q_TAIL_MASK) {
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: there is a queue ahead of us\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 		int val;
 
 		prev = decode_tail(old, rqnodes);
 
 		/* Link @node into the waitqueue. */
 		WRITE_ONCE(prev->next, node);
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: link the current node with prev node\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 
+		/*
+		 * We are adding the lock to queue and wait till we reach a
+		 * timeout
+		 */
 		val = arch_mcs_spin_lock_contended(&node->locked);
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: after the current node takes the ownership\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n"
+			"\tlocal val 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked), val);
+		/*
+		 * RES_TIMEOUT_VAL is 2 (?)
+		 * arch_mcs_spin_lock_contended doesn't even have any res_spin_lock semantics
+		 * what the hell is this (?)
+		 */
 		if (val == RES_TIMEOUT_VAL) {
 			ret = -EDEADLK;
 			goto waitq_timeout;
@@ -550,6 +712,10 @@ queue:
 		 * the next pointer & prefetch the cacheline for writing
 		 * to reduce latency in the upcoming MCS unlock operation.
 		 */
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: we got the lock from prev node, so we are pre-fetching the next node if any\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 		next = READ_ONCE(node->next);
 		if (next)
 			prefetchw(next);
@@ -570,6 +736,13 @@ queue:
 	 * meant to span maximum allowed time per critical section, and we may
 	 * have both the owner of the lock and the pending bit waiter ahead of
 	 * us.
+	 */
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: we are the head node\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
+	/*
+	 * reseting the timeout to 0.5 seconds
 	 */
 	RES_RESET_TIMEOUT(ts, RES_DEF_TIMEOUT * 2);
 	val = res_atomic_cond_read_acquire(&lock->val, !(VAL & _Q_LOCKED_PENDING_MASK) ||
@@ -601,9 +774,18 @@ waitq_timeout:
 		 * complicated synchronization, because when not leaving in FIFO
 		 * order, prev's next pointer needs to be fixed up etc.
 		 */
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: queuing timeout\n"
+				"\tlock->val 0x%x\n"
+				"\tnode->locked 0x%x\n",
+				current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 		if (!try_cmpxchg_tail(lock, tail, 0)) {
 			next = smp_cond_load_relaxed(&node->next, VAL);
 			WRITE_ONCE(next->locked, RES_TIMEOUT_VAL);
+
+			pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: after emptying the queue in the weirdest possible way\n"
+				"\tlock->val 0x%x\n"
+				"\tnode->locked 0x%x\n",
+				current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 		}
 		lockevent_inc(rqspinlock_lock_timeout);
 		goto err_release_node;
@@ -626,6 +808,11 @@ waitq_timeout:
 	 *       PENDING will make the uncontended transition fail.
 	 */
 	if ((val & _Q_TAIL_MASK) == tail) {
+		pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: uncontended queuing\n"
+				"\tlock->val 0x%x\n"
+				"\tnode->locked 0x%x\n"
+				"\tgbl val 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked), val);
 		if (atomic_try_cmpxchg_relaxed(&lock->val, &val, _Q_LOCKED_VAL))
 			goto release; /* No contention */
 	}
@@ -635,6 +822,10 @@ waitq_timeout:
 	 * which will then detect the remaining tail and queue behind us
 	 * ensuring we'll see a @next.
 	 */
+	pr_info("resilient_queued_spin_lock_slowpath[%d, %d - %d]: head node is taking the lock\n"
+			"\tlock->val 0x%x\n"
+			"\tnode->locked 0x%x\n",
+			current->pid, current->tgid, smp_processor_id(), atomic_read(&lock->val), READ_ONCE(node->locked));
 	set_locked(lock);
 
 	/*
@@ -662,7 +853,7 @@ err_release_entry:
 }
 EXPORT_SYMBOL_GPL(resilient_queued_spin_lock_slowpath);
 
-#endif /* CONFIG_QUEUED_SPINLOCKS */
+//#endif /* CONFIG_QUEUED_SPINLOCKS */
 
 __bpf_kfunc_start_defs();
 

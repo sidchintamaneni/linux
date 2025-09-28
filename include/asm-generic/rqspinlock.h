@@ -75,7 +75,12 @@ DECLARE_PER_CPU_ALIGNED(struct rqspinlock_held, rqspinlock_held_locks);
 
 static __always_inline void grab_held_lock_entry(void *lock)
 {
+	pr_info("grab_held_lock_entry[%d, %d - %d]: starting rqspinlock accounting\n", 
+		current->pid, current->tgid, smp_processor_id());
+
 	int cnt = this_cpu_inc_return(rqspinlock_held_locks.cnt);
+	pr_info("grab_held_lock_entry[%d, %d - %d]: number of spinlocks on this cpu %d\n", 
+		current->pid, current->tgid, smp_processor_id(), cnt);
 
 	if (unlikely(cnt > RES_NR_HELD)) {
 		/* Still keep the inc so we decrement later. */
@@ -160,7 +165,7 @@ dec:
 	this_cpu_dec(rqspinlock_held_locks.cnt);
 }
 
-#ifdef CONFIG_QUEUED_SPINLOCKS
+//#ifdef CONFIG_QUEUED_SPINLOCKS
 
 /**
  * res_spin_lock - acquire a queued spinlock
@@ -175,23 +180,31 @@ static __always_inline int res_spin_lock(rqspinlock_t *lock)
 {
 	int val = 0;
 
+	pr_info("res_spin_lock[%d, %d - %d]: taking the lock\n", 
+			current->pid, current->tgid, smp_processor_id());
+
 	if (likely(atomic_try_cmpxchg_acquire(&lock->val, &val, _Q_LOCKED_VAL))) {
 		grab_held_lock_entry(lock);
 		return 0;
 	}
+
+	pr_info("res_spin_lock[%d, %d - %d]: observed contention, started queuing",
+			current->pid, current->tgid, smp_processor_id());
 	return resilient_queued_spin_lock_slowpath(lock, val);
 }
 
-#else
-
-#define res_spin_lock(lock) resilient_tas_spin_lock(lock)
-
-#endif /* CONFIG_QUEUED_SPINLOCKS */
+//#else
+//
+//#define res_spin_lock(lock) resilient_tas_spin_lock(lock)
+//
+//#endif /* CONFIG_QUEUED_SPINLOCKS */
 
 static __always_inline void res_spin_unlock(rqspinlock_t *lock)
 {
 	struct rqspinlock_held *rqh = this_cpu_ptr(&rqspinlock_held_locks);
 
+	pr_info("res_spin_unlock[%d, %d - %d]: unlocking..\n", 
+			current->pid, current->tgid, smp_processor_id());
 	if (unlikely(rqh->cnt > RES_NR_HELD))
 		goto unlock;
 	WRITE_ONCE(rqh->locks[rqh->cnt - 1], NULL);
