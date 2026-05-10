@@ -947,6 +947,7 @@ KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 KBUILD_CFLAGS	+= $(call cc-option,-fno-allow-store-data-races)
 endif
 
+KBUILD_CFLAGS    += $(call cc-option,-Xassembler --gsframe=no)
 ifdef CONFIG_READABLE_ASM
 # Disable optimizations that make assembler listings hard to read.
 # reorder blocks reorders the control in the function

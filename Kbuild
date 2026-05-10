@@ -98,6 +98,7 @@ obj-y			+= usr/
 obj-y			+= arch/$(SRCARCH)/
 obj-y			+= $(ARCH_CORE)
 obj-y			+= kernel/
+obj-y			+= sec-research/
 obj-y			+= certs/
 obj-y			+= mm/
 obj-y			+= fs/
